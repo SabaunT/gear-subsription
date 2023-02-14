@@ -6,7 +6,7 @@ use gstd::ActorId;
 pub trait Metawasm {
     type State = <SubscriptionMetadata as Metadata>::State;
 
-    // fn subscribers(state: Self::State) -> Vec<ActorId> {
-    //     state.subscribers.clone()
-    // }
+    fn subscribers(state: Self::State) -> Vec<ActorId> {
+        state.subscribers.clone()
+    }
 }

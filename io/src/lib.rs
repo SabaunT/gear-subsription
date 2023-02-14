@@ -14,7 +14,7 @@ impl Metadata for SubscriptionMetadata {
     type Reply = ();
     type Others = ();
     type Signal = ();
-    type State = ();
+    type State = SubscriptionState;
 }
 
 #[derive(Debug, Encode, Decode, TypeInfo)]

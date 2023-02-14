@@ -2,7 +2,7 @@
 
 use ft_io::{FTAction, FTEvent};
 use gstd::{async_main, exec, msg, prelude::*, ActorId};
-use gear_subscription_io::{Actions, Period, Price};
+use gear_subscription_io::{Actions, Period, Price, SubscriptionState};
 
 // todo add metastate.
 // todo  control tokens are of erc20 standard
@@ -62,6 +62,11 @@ async fn main() {
 extern "C" fn metahash() {
     let metahash: [u8; 32] = include!("../.metahash");
     msg::reply(metahash, 0).expect("Failed to share metahash");
+}
+
+extern "C" fn state() {
+    let ret_state = SubscriptionState { subscribers: SUBSCRIBERS.iter().collect() };
+    let _ = msg::reply(ret_state, 0);
 }
 
 fn add_token(token_data: (ActorId, Price)) {
