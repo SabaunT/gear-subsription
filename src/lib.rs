@@ -2,12 +2,12 @@
 
 use ft_io::{FTAction, FTEvent};
 use gstd::{async_main, exec, msg, prelude::*, ActorId};
-use gear_subscription_io::{Actions, Period, Price, SubscriptionState};
+use gear_subscription_io::{Actions, Price, SubscriptionState};
 
-// todo add metastate.
-// todo  control tokens are of erc20 standard
+// todo control tokens are of erc20 standard
 // todo error workflow done by eco-system guys
-// todo add readme
+// todo control errors between async calls
+// todo add readme + docs
 // todo add tests
 // todo metahash
 
@@ -64,8 +64,9 @@ extern "C" fn metahash() {
     msg::reply(metahash, 0).expect("Failed to share metahash");
 }
 
+#[no_mangle]
 extern "C" fn state() {
-    let ret_state = SubscriptionState { subscribers: SUBSCRIBERS.iter().collect() };
+    let ret_state = unsafe { SubscriptionState { subscribers: SUBSCRIBERS.iter().copied().collect() } };
     let _ = msg::reply(ret_state, 0);
 }
 
