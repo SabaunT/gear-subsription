@@ -1,6 +1,6 @@
 #![no_std]
 
-use gmeta::{Metadata, In};
+use gmeta::{In, Metadata};
 use gstd::{prelude::*, ActorId};
 
 pub type TokenData = (ActorId, Price);
@@ -24,6 +24,7 @@ pub enum Actions {
     RegisterSubscription {
         payment_method: ActorId,
         period: Period,
+        with_renewal: bool,
     },
     CheckSubscription {
         subscriber: ActorId,
@@ -39,7 +40,7 @@ pub enum Period {
     SixMonths,
     NineMonths,
     Year,
-    FiveMinutes, // todo for test
+    ThirtySecs, // todo for test
 }
 
 impl Period {
@@ -59,7 +60,7 @@ impl Period {
             Period::SixMonths => Self::MONTH * 6,
             Period::NineMonths => Self::MONTH * 9,
             Period::Year => Self::MONTH * 12,
-            Period::FiveMinutes => Self::MINUTE * 5,
+            Period::ThirtySecs => Self::SECOND * 30,
         };
 
         time / Self::TARGET_BLOCK_TIME
@@ -71,4 +72,13 @@ impl Period {
 #[scale_info(crate = gstd::scale_info)]
 pub struct SubscriptionState {
     pub subscribers: Vec<ActorId>,
+}
+
+#[derive(Debug, Clone, Default, Encode, Decode, TypeInfo)]
+#[codec(crate = gstd::codec)]
+#[scale_info(crate = gstd::scale_info)]
+pub struct SubscriberData {
+    pub with_renewal: bool,
+    pub end_block: u32,
+    pub payment_method: ActorId,
 }
