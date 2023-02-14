@@ -51,19 +51,29 @@ async fn main() {
             )
             .expect("failed");
 
-            let current_block = exec::block_height();
+            let start_date = exec::block_timestamp();
+            let start_block = exec::block_height();
             add_subscriber(
                 subscriber,
                 SubscriberData {
                     with_renewal,
-                    end_block: current_block + period.to_blocks(),
                     payment_method,
+                    subscription_start: (start_date, start_block),
+                    period,
+                    renewal_date: (
+                        start_date + Period::ThirtySecs.to_millis(),
+                        start_block + Period::ThirtySecs.to_blocks(),
+                    ),
                 },
             );
         }
         Actions::CheckSubscription { subscriber } => {
+            // todo update end date
             let sub_data = get_subscriber(&subscriber).expect("no data");
-            if sub_data.with_renewal {
+            if sub_data.with_renewal
+                && sub_data.subscription_start.1 + sub_data.period.to_blocks()
+                    >= exec::block_height()
+            {
                 let price =
                     get_price(&sub_data.payment_method).expect("register sub: no such token");
                 let _: FTEvent = msg::send_for_reply_as(
@@ -86,10 +96,27 @@ async fn main() {
                     Period::ThirtySecs.to_blocks(),
                 )
                 .expect("failed");
+
+                let (renewal_date, renewal_block) = sub_data.renewal_date;
+                let renewal_date = renewal_date + Period::ThirtySecs.to_millis();
+                let renewal_block = renewal_block + Period::ThirtySecs.to_blocks();
+                add_subscriber(
+                    subscriber,
+                    SubscriberData {
+                        with_renewal: true,
+                        payment_method: sub_data.payment_method,
+                        subscription_start: sub_data.subscription_start,
+                        period: sub_data.period,
+                        renewal_date: (renewal_date, renewal_block),
+                    },
+                );
             } else {
                 // todo handle remove subscription
                 delete_subscriber(&subscriber)
             }
+        }
+        Actions::CancelSubscription { subscriber } => {
+            todo!()
         }
     }
 }
@@ -103,7 +130,8 @@ extern "C" fn metahash() {
 #[no_mangle]
 extern "C" fn state() {
     let ret_state = unsafe { SUBSCRIBERS.clone() };
-    let _ = msg::reply(ret_state, 0);
+    let ret_state2 = unsafe { SUPPORTED_TOKENS.clone() };
+    let _ = msg::reply::<SubscriptionState>((ret_state, ret_state2).into(), 0);
 }
 
 fn add_token(token_data: (ActorId, Price)) {

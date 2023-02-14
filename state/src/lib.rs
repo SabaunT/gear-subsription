@@ -1,12 +1,15 @@
-use gear_subscription_io::SubscriptionMetadata;
-use gmeta::{metawasm, Metadata};
-use gstd::ActorId;
+#![no_std]
 
-#[metawasm]
-pub trait Metawasm {
-    type State = <SubscriptionMetadata as Metadata>::State;
-
-    fn subscribers(state: Self::State) -> Vec<ActorId> {
-        state.subscribers.clone()
-    }
+#[cfg(feature = "std")]
+mod code {
+    include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 }
+
+#[cfg(feature = "std")]
+pub use code::WASM_BINARY as META_WASM_V2;
+
+#[cfg(feature = "std")]
+pub use code::WASM_EXPORTS as META_EXPORTS_V2;
+
+#[cfg(not(feature = "std"))]
+mod wasm;
