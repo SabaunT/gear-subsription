@@ -23,11 +23,7 @@ pub trait Metawasm {
                         end_block: start_block + period.to_blocks(),
                         period,
                         will_renew,
-                        price: state
-                            .payment_methods
-                            .get(&v.payment_method)
-                            .copied()
-                            .unwrap(),
+                        price: state.currencies.get(&v.currency_id).copied().unwrap(),
                     };
 
                     Some((*k, ret_data))

@@ -22,7 +22,7 @@ impl Metadata for SubscriptionMetadata {
 #[scale_info(crate = gstd::scale_info)]
 pub enum Actions {
     RegisterSubscription {
-        payment_method: ActorId,
+        currency_id: ActorId,
         period: Period,
         with_renewal: bool,
     },
@@ -48,7 +48,7 @@ pub enum Period {
 }
 
 impl Period {
-    // todo Must be changeable
+    // TODO [cleanness] Must be changeable
     const TARGET_BLOCK_TIME: u32 = Self::SECOND;
     // const MONTH: u32 = Self::DAY * 30;
     // const DAY: u32 = Self::HOUR * 24;
@@ -94,17 +94,17 @@ impl Period {
 #[scale_info(crate = gstd::scale_info)]
 pub struct SubscriptionState {
     pub subscribers: BTreeMap<ActorId, SubscriberData>,
-    pub payment_methods: BTreeMap<ActorId, Price>,
+    pub currencies: BTreeMap<ActorId, Price>,
 }
 
 type V = (BTreeMap<ActorId, SubscriberData>, BTreeMap<ActorId, Price>);
 
 impl From<V> for SubscriptionState {
     fn from(value: V) -> Self {
-        let (one, two) = value;
+        let (subscribers, currencies) = value;
         SubscriptionState {
-            subscribers: one,
-            payment_methods: two,
+            subscribers,
+            currencies,
         }
     }
 }
@@ -113,11 +113,21 @@ impl From<V> for SubscriptionState {
 #[codec(crate = gstd::codec)]
 #[scale_info(crate = gstd::scale_info)]
 pub struct SubscriberData {
-    pub payment_method: ActorId,
+    /// Id of the payment method.
+    pub currency_id: ActorId,
+    /// Subscription period
     pub period: Period,
-    // todo this must be calculated off-chain
+    // TODO [optimization] this must be calculated off-chain
+    /// Subscription start timestamp and block number.
+    ///
+    /// If `None`, means that subscriber has paid for the
+    /// subscription, but didn't succeed sending delayed
+    /// message for subscription check/renewal.
     pub subscription_start: Option<(u64, u32)>,
-    // todo this must be calculated off-chain
+    // TODO [optimization] this must be calculated off-chain
+    /// Subscription renewal date.
+    ///
+    /// If None, then no renewal desired.
     pub renewal_date: Option<(u64, u32)>,
 }
 

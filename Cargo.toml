@@ -3,7 +3,7 @@ name = "gear-subscription"
 version = "0.1.0"
 edition = "2021"
 
-# todo Add fields as it's done in gear-dapps
+# TODO [release] Add fields as it's done in gear-dapps
 
 [dependencies]
 gear-subscription-io = { path = "io" }
