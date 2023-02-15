@@ -27,14 +27,14 @@ async fn main() {
             payment_method,
             with_renewal,
         } => {
+            let price = get_price(&payment_method).expect("RegisterSubscription: unregistered payment method");
             let subscriber = msg::source();
-            let price = get_price(&payment_method);
 
-            if get_subscriber(&subscriber).is_some() || price.is_none() {
+            if get_subscriber(&subscriber).is_some() {
                 panic!("RegisterSubscription: invalid subscription state");
             }
 
-            let payment_fee = price.expect("checked") * period.to_units();
+            let payment_fee = price * period.to_units();
 
             let _: FTEvent = msg::send_for_reply_as(
                 payment_method,
