@@ -6,6 +6,7 @@ use gstd::{prelude::*, ActorId};
 pub type TokenData = (ActorId, Price);
 pub type Price = u128;
 
+/// Subscription contract metadata
 pub struct SubscriptionMetadata;
 
 impl Metadata for SubscriptionMetadata {
@@ -17,24 +18,33 @@ impl Metadata for SubscriptionMetadata {
     type State = SubscriptionState;
 }
 
+/// Actions callable by a user on the subscription contract
 #[derive(Debug, Encode, Decode, TypeInfo)]
 #[codec(crate = gstd::codec)]
 #[scale_info(crate = gstd::scale_info)]
 pub enum Actions {
+    /// Create a new subscription for a user `ActorId` for a `Period` of time.
+    /// Automatically renewed if `with_renewal` is enabled.
     RegisterSubscription {
         currency_id: ActorId,
         period: Period,
         with_renewal: bool,
     },
+    /// Update (renew or end) an existing subscription.
     UpdateSubscription {
         subscriber: ActorId,
     },
+    /// Cancel existing subscription
     CancelSubscription,
+    /// Initialize or delete a pending subscription (which can be the case
+    /// if `RegisterSubscription` action failed due to out-of-gas)
     ManagePendingSubscription {
         enable: bool,
     },
 }
 
+/// Set of time periods for which a subscription can be purchased
+/// in context of the sucbscription contract.
 #[derive(Debug, Clone, Copy, Default, Encode, Decode, TypeInfo)]
 #[codec(crate = gstd::codec)]
 #[scale_info(crate = gstd::scale_info)]
@@ -89,6 +99,7 @@ impl Period {
     }
 }
 
+/// State of the subscription contract
 #[derive(Debug, Clone, Default, Encode, Decode, TypeInfo)]
 #[codec(crate = gstd::codec)]
 #[scale_info(crate = gstd::scale_info)]
@@ -109,6 +120,7 @@ impl From<V> for SubscriptionState {
     }
 }
 
+/// Subscriber's data
 #[derive(Debug, Clone, Copy, Default, Encode, Decode, TypeInfo)]
 #[codec(crate = gstd::codec)]
 #[scale_info(crate = gstd::scale_info)]
@@ -131,6 +143,7 @@ pub struct SubscriberData {
     pub renewal_date: Option<(u64, u32)>,
 }
 
+/// Subscriber's state
 #[derive(Debug, Clone, Default, Encode, Decode, TypeInfo)]
 #[codec(crate = gstd::codec)]
 #[scale_info(crate = gstd::scale_info)]
