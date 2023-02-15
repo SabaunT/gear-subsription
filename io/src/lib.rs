@@ -29,33 +29,33 @@ pub enum Actions {
     CheckSubscription {
         subscriber: ActorId,
     },
-    CancelSubscription {
-        subscriber: ActorId,
-    },
+    CancelSubscription,
 }
 
 #[derive(Debug, Clone, Copy, Default, Encode, Decode, TypeInfo)]
 #[codec(crate = gstd::codec)]
 #[scale_info(crate = gstd::scale_info)]
 pub enum Period {
-    // Month,
-    // ThreeMonths,
-    // SixMonths,
-    OneMinuteTenSecs,
-    Minute,
+    Year,
+    NineMonths,
+    SixMonths,
+    ThreeMonths,
     #[default]
-    ThirtySecs, // todo for test
+    Month,
 }
 
 impl Period {
     // todo Must be changeable
     const TARGET_BLOCK_TIME: u32 = Self::SECOND;
-    const MONTH: u32 = Self::DAY * 30;
-
-    const DAY: u32 = Self::HOUR * 24;
-    const HOUR: u32 = Self::MINUTE * 60;
-    const MINUTE: u32 = Self::SECOND * 60;
+    // const MONTH: u32 = Self::DAY * 30;
+    // const DAY: u32 = Self::HOUR * 24;
+    // const HOUR: u32 = Self::MINUTE * 60;
+    // const MINUTE: u32 = Self::SECOND * 60;
     const SECOND: u32 = 1;
+
+    pub fn minimal_unit() -> Self {
+        Self::Month
+    }
 
     pub fn to_blocks(&self) -> u32 {
         self.to_secs() / Self::TARGET_BLOCK_TIME
@@ -67,14 +67,11 @@ impl Period {
 
     fn to_secs(&self) -> u32 {
         match self {
-            Period::OneMinuteTenSecs => Self::MINUTE + Self::SECOND * 10,
-            Period::Minute => Self::MINUTE,
-            // Period::Month => Self::MONTH,
-            // Period::ThreeMonths => Self::MONTH * 3,
-            // Period::SixMonths => Self::MONTH * 6,
-            // Period::NineMonths => Self::MONTH * 9,
-            // Period::Year => Self::MONTH * 12,
-            Period::ThirtySecs => Self::SECOND * 30,
+            Period::Year => Self::Month.to_secs() * 12,
+            Period::NineMonths => Self::Month.to_secs() * 9,
+            Period::SixMonths => Self::Month.to_secs() * 6,
+            Period::ThreeMonths => Self::Month.to_secs() * 3,
+            Period::Month => Self::SECOND * 30,
         }
     }
 }
@@ -99,14 +96,16 @@ impl From<V> for SubscriptionState {
     }
 }
 
-#[derive(Debug, Clone, Default, Encode, Decode, TypeInfo)]
+#[derive(Debug, Clone, Copy, Default, Encode, Decode, TypeInfo)]
 #[codec(crate = gstd::codec)]
 #[scale_info(crate = gstd::scale_info)]
 pub struct SubscriberData {
     pub with_renewal: bool,
     pub payment_method: ActorId,
-    pub subscription_start: (u64, u32),
     pub period: Period,
+    // todo this must be calculated off-chain
+    pub subscription_start: (u64, u32),
+    // todo this must be calculated off-chain
     pub renewal_date: (u64, u32),
 }
 

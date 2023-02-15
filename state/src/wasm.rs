@@ -1,4 +1,4 @@
-use gear_subscription_io::{SubscriberData, SubscriberDataState, SubscriptionMetadata};
+use gear_subscription_io::{SubscriberDataState, SubscriptionMetadata};
 use gmeta::{metawasm, BTreeMap, Metadata};
 use gstd::{ActorId, ToString};
 
@@ -24,10 +24,7 @@ pub trait Metawasm {
                     period,
                     renewal_date,
                     renewal_block,
-                    price: state
-                        .payment_methods
-                        .get(&v.payment_method)
-                        .copied(),
+                    price: state.payment_methods.get(&v.payment_method).copied(),
                 };
 
                 (*k, ret_data)
