@@ -147,7 +147,7 @@ async fn main() {
                 // Delayed message sending is needed for storage invalidation and update.
                 // If this "sanity" message sending was failed, then we consider subscriber
                 // as pending, so he can enable/withdraw his subscription receiving back
-                // money. 
+                // money.
                 Subscribers::add_pending_subscriber(subscriber, (currency_id, period));
             }
         }
@@ -219,7 +219,7 @@ async fn main() {
                     // Delayed message sending is needed for storage invalidation and update.
                     // If this "sanity" message sending was failed, then we consider subscriber
                     // as pending, so he can enable/withdraw his subscription receiving back
-                    // money. 
+                    // money.
                     Subscribers::add_pending_subscriber(subscriber, (currency_id, period));
                 }
             } else {

@@ -31,16 +31,12 @@ pub enum Actions {
         with_renewal: bool,
     },
     /// Update (renew or end) an existing subscription.
-    UpdateSubscription {
-        subscriber: ActorId,
-    },
+    UpdateSubscription { subscriber: ActorId },
     /// Cancel existing subscription
     CancelSubscription,
     /// Initialize or delete a pending subscription (which can be the case
     /// if `RegisterSubscription` action failed due to out-of-gas)
-    ManagePendingSubscription {
-        enable: bool,
-    },
+    ManagePendingSubscription { enable: bool },
 }
 
 /// Set of time periods for which a subscription can be purchased
