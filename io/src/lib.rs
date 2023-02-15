@@ -60,10 +60,6 @@ pub enum Period {
 impl Period {
     // TODO [cleanness] Must be changeable
     const TARGET_BLOCK_TIME: u32 = Self::SECOND;
-    // const MONTH: u32 = Self::DAY * 30;
-    // const DAY: u32 = Self::HOUR * 24;
-    // const HOUR: u32 = Self::MINUTE * 60;
-    // const MINUTE: u32 = Self::SECOND * 60;
     const SECOND: u32 = 1;
 
     pub fn minimal_unit() -> Self {
