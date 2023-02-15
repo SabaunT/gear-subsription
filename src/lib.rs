@@ -1,7 +1,7 @@
 #![no_std]
 
 use ft_io::{FTAction, FTEvent};
-use gear_subscription_io::{Actions, Period, Price, SubscriberData, SubscriptionState};
+use gear_subscription_io::{Actions, Price, SubscriberData, SubscriptionState};
 use gstd::{async_main, exec, msg, prelude::*, ActorId};
 
 // todo control tokens are of erc20 standard
@@ -9,8 +9,8 @@ use gstd::{async_main, exec, msg, prelude::*, ActorId};
 // todo control errors between async calls
 // todo add readme + docs
 // todo add tests
+// todo UpdateSubscription execution is the same as end date
 
-static mut PAID_SUBSCRIPTIONS: BTreeSet<ActorId> = BTreeSet::new();
 static mut SUPPORTED_TOKENS: BTreeMap<ActorId, Price> = BTreeMap::new();
 static mut SUBSCRIBERS: BTreeMap<ActorId, SubscriberData> = BTreeMap::new();
 
@@ -28,13 +28,13 @@ async fn main() {
             with_renewal,
         } => {
             let subscriber = msg::source();
-            let payment_fee = get_price(&payment_method);
+            let price = get_price(&payment_method);
 
-            if get_subscriber(&subscriber).is_some() || payment_fee.is_none() {
+            if get_subscriber(&subscriber).is_some() || price.is_none() {
                 panic!("RegisterSubscription: invalid subscription state");
             }
 
-            let payment_fee = payment_fee.expect("checked");
+            let payment_fee = price.expect("checked") * period.to_units();
 
             let _: FTEvent = msg::send_for_reply_as(
                 payment_method,
@@ -45,104 +45,122 @@ async fn main() {
                 },
                 0,
             )
-            .unwrap_or_else(|e| { 
-                panic!("RegisterSubscription: error sending async message: {e:?}")
-            })
+            .unwrap_or_else(|e| panic!("RegisterSubscription: error sending async message: {e:?}"))
             .await
             .unwrap_or_else(|e| {
                 panic!("RegisterSubscription: transfer ended up with an error {e:?}")
             });
-            add_paid_sub(subscriber);
 
             if msg::send_delayed(
                 exec::program_id(),
-                Actions::CheckSubscription { subscriber },
+                Actions::UpdateSubscription { subscriber },
                 0,
-                Period::minimal_unit().to_blocks(),
-            ).is_ok() {
+                period.to_blocks(),
+            )
+            .is_ok()
+            {
                 let start_date = exec::block_timestamp();
                 let start_block = exec::block_height();
+                let renewal_date = if with_renewal {
+                    Some((
+                        start_date + period.to_millis(),
+                        start_block + period.to_blocks(),
+                    ))
+                } else {
+                    None
+                };
                 add_subscriber(
                     subscriber,
-                    SubscriberData { 
-                        with_renewal,
+                    SubscriberData {
                         payment_method,
                         period,
-                        subscription_start: (start_date, start_block),
-                        renewal_date: (
-                            start_date + Period::minimal_unit().to_millis(),
-                            start_block + Period::minimal_unit().to_blocks(),
-                        )
-                    }
+                        renewal_date,
+                        subscription_start: Some((start_date, start_block)),
+                    },
+                );
+            } else {
+                add_subscriber(
+                    subscriber,
+                    SubscriberData {
+                        payment_method,
+                        period,
+                        renewal_date: None,
+                        subscription_start: None,
+                    },
                 );
             }
         }
-        Actions::CheckSubscription { subscriber } => {
+        Actions::UpdateSubscription { subscriber } => {
             let this_program = exec::program_id();
             if msg::source() != this_program {
-                panic!("CheckSubscription: message allowed only for this program");
+                panic!("UpdateSubscription: message allowed only for this program");
             }
 
             let SubscriberData {
-                with_renewal,
                 payment_method,
                 period,
-                subscription_start,
+                renewal_date,
                 ..
-            } = get_subscriber(&subscriber).copied().expect("CheckSubscription: subscriber not found");
-            let (start_date, start_block) = subscription_start;
+            } = get_subscriber(&subscriber)
+                .copied()
+                .expect("UpdateSubscription: subscriber not found");
 
             let current_block = exec::block_height();
             let current_date = exec::block_timestamp();
-            let is_not_expired = start_block + period.to_blocks() >= current_block || start_date + period.to_millis() >= current_date;
-            let is_renewal_case = !is_not_expired && with_renewal;
 
-            if is_not_expired || is_renewal_case {
-                let price = get_price(&payment_method).expect("CheckSubscription: payment method was deleted");
+            if renewal_date.is_some() {
+                let price = get_price(&payment_method)
+                    .expect("UpdateSubscription: payment method was deleted");
                 let _: FTEvent = msg::send_for_reply_as(
                     payment_method,
                     FTAction::Transfer {
                         from: subscriber,
                         to: this_program,
-                        amount: price,
+                        amount: price * period.to_units(),
                     },
                     0,
                 )
-                .unwrap_or_else(|e| { 
-                    panic!("CheckSubscription: error sending async message: {e:?}")
+                .unwrap_or_else(|e| {
+                    panic!("UpdateSubscription: error sending async message: {e:?}")
                 })
                 .await
                 .unwrap_or_else(|e| {
-                    panic!("CheckSubscription: transfer ended up with an error {e:?}")
+                    panic!("UpdateSubscription: transfer ended up with an error {e:?}")
                 });
 
                 if msg::send_delayed(
                     this_program,
-                    Actions::CheckSubscription { subscriber },
+                    Actions::UpdateSubscription { subscriber },
                     0,
-                    Period::minimal_unit().to_blocks(),
-                ).is_ok() {
-                    let subscription_start = if is_renewal_case {
-                        (current_date, current_block)
-                    } else {
-                        (start_date, start_block)
-                    };
+                    period.to_blocks(),
+                )
+                .is_ok()
+                {
                     add_subscriber(
                         subscriber,
                         SubscriberData {
-                            with_renewal,
                             payment_method,
                             period,
-                            subscription_start,
-                            renewal_date: (
-                                current_date + Period::minimal_unit().to_millis(),
-                                current_block + Period::minimal_unit().to_blocks(),
-                            ),
+                            subscription_start: Some((current_date, current_block)),
+                            renewal_date: Some((
+                                current_date + period.to_millis(),
+                                current_block + period.to_blocks(),
+                            )),
+                        },
+                    );
+                } else {
+                    add_subscriber(
+                        subscriber,
+                        SubscriberData {
+                            payment_method,
+                            period,
+                            renewal_date: None,
+                            subscription_start: None,
                         },
                     );
                 }
             } else {
-                delete_subscriber(&subscriber)
+                delete_subscriber(&subscriber);
             }
         }
         Actions::CancelSubscription => {
@@ -154,12 +172,78 @@ async fn main() {
 
             let updated_subscription = {
                 let mut new_data = subscription.copied().expect("checked");
-                new_data.with_renewal = false;
-                
+                new_data.renewal_date = None;
+
                 new_data
             };
 
             add_subscriber(subscriber, updated_subscription);
+        }
+        Actions::ManagePendingSubscription { enable } => {
+            let subscriber = msg::source();
+            let this_program = exec::program_id();
+
+            if let Some(SubscriberData {
+                subscription_start,
+                period,
+                payment_method,
+                ..
+            }) = get_subscriber(&subscriber).copied()
+            {
+                if subscription_start.is_some() {
+                    panic!("ManagePendingSubscription: subscription is not pending");
+                }
+
+                if enable {
+                    msg::send_delayed(
+                        this_program,
+                        Actions::UpdateSubscription { subscriber },
+                        0,
+                        period.to_blocks(),
+                    )
+                    .unwrap_or_else(|e| {
+                        panic!("ManagePendingSubscription: sending delayed message failed {e:?}")
+                    });
+
+                    let current_date = exec::block_timestamp();
+                    let current_block = exec::block_height();
+                    add_subscriber(
+                        subscriber,
+                        SubscriberData {
+                            payment_method,
+                            period,
+                            subscription_start: Some((current_date, current_block)),
+                            renewal_date: Some((
+                                current_date + period.to_millis(),
+                                current_block + period.to_blocks(),
+                            )),
+                        },
+                    );
+                } else {
+                    let price = get_price(&payment_method)
+                        .expect("ManagePendingSubscription: payment method was deleted");
+                    let _: FTEvent = msg::send_for_reply_as(
+                        payment_method,
+                        FTAction::Transfer {
+                            from: this_program,
+                            to: subscriber,
+                            amount: price * period.to_units(),
+                        },
+                        0,
+                    )
+                    .unwrap_or_else(|e| {
+                        panic!("ManagePendingSubscription: error sending async message: {e:?}")
+                    })
+                    .await
+                    .unwrap_or_else(|e| {
+                        panic!("ManagePendingSubscription: transfer ended up with an error {e:?}")
+                    });
+
+                    delete_subscriber(&subscriber);
+                }
+            } else {
+                panic!("ManagePendingSubscription: can't manage non existing subscription");
+            }
         }
     }
 }
@@ -194,17 +278,12 @@ fn add_subscriber(subscriber: ActorId, data: SubscriberData) {
     }
 }
 
-fn add_paid_sub(subscriber: ActorId) {
-    unsafe { PAID_SUBSCRIPTIONS.insert(subscriber); }
-}
-
 fn get_subscriber(subscriber: &ActorId) -> Option<&SubscriberData> {
     unsafe { SUBSCRIBERS.get(subscriber) }
 }
 
 fn delete_subscriber(subscriber: &ActorId) {
     unsafe {
-        PAID_SUBSCRIPTIONS.remove(subscriber);
         SUBSCRIBERS.remove(subscriber);
     }
 }

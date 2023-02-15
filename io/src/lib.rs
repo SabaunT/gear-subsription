@@ -26,10 +26,13 @@ pub enum Actions {
         period: Period,
         with_renewal: bool,
     },
-    CheckSubscription {
+    UpdateSubscription {
         subscriber: ActorId,
     },
     CancelSubscription,
+    ManagePendingSubscription {
+        enable: bool,
+    },
 }
 
 #[derive(Debug, Clone, Copy, Default, Encode, Decode, TypeInfo)]
@@ -55,6 +58,16 @@ impl Period {
 
     pub fn minimal_unit() -> Self {
         Self::Month
+    }
+
+    pub fn to_units(&self) -> u128 {
+        match self {
+            Period::Year => 12,
+            Period::NineMonths => 9,
+            Period::SixMonths => 6,
+            Period::ThreeMonths => 3,
+            Period::Month => 1,
+        }
     }
 
     pub fn to_blocks(&self) -> u32 {
@@ -100,13 +113,12 @@ impl From<V> for SubscriptionState {
 #[codec(crate = gstd::codec)]
 #[scale_info(crate = gstd::scale_info)]
 pub struct SubscriberData {
-    pub with_renewal: bool,
     pub payment_method: ActorId,
     pub period: Period,
     // todo this must be calculated off-chain
-    pub subscription_start: (u64, u32),
+    pub subscription_start: Option<(u64, u32)>,
     // todo this must be calculated off-chain
-    pub renewal_date: (u64, u32),
+    pub renewal_date: Option<(u64, u32)>,
 }
 
 #[derive(Debug, Clone, Default, Encode, Decode, TypeInfo)]
@@ -115,11 +127,10 @@ pub struct SubscriberData {
 pub struct SubscriberDataState {
     pub is_active: bool,
     pub start_date: u64,
-    pub end_date: u64,
     pub start_block: u32,
+    pub end_date: u64,
     pub end_block: u32,
     pub period: Period,
-    pub renewal_date: u64,  // Option
-    pub renewal_block: u32, // Option
-    pub price: Option<u128>,
+    pub will_renew: bool,
+    pub price: u128,
 }

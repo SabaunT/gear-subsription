@@ -10,24 +10,30 @@ pub trait Metawasm {
         state
             .subscribers
             .iter()
-            .map(|(k, v)| {
-                let (start_date, start_block) = v.subscription_start;
-                let period = v.period;
-                let (renewal_date, renewal_block) = v.renewal_date;
+            .filter_map(|(k, v)| {
+                if let Some((start_date, start_block)) = v.subscription_start {
+                    let period = v.period;
+                    let will_renew = v.renewal_date.is_some();
 
-                let ret_data = SubscriberDataState {
-                    is_active: true,
-                    start_date,
-                    end_date: start_date + period.to_millis(),
-                    start_block,
-                    end_block: start_block + period.to_blocks(),
-                    period,
-                    renewal_date,
-                    renewal_block,
-                    price: state.payment_methods.get(&v.payment_method).copied(),
-                };
+                    let ret_data = SubscriberDataState {
+                        is_active: true,
+                        start_date,
+                        start_block,
+                        end_date: start_date + period.to_millis(),
+                        end_block: start_block + period.to_blocks(),
+                        period,
+                        will_renew,
+                        price: state
+                            .payment_methods
+                            .get(&v.payment_method)
+                            .copied()
+                            .unwrap(),
+                    };
 
-                (*k, ret_data)
+                    Some((*k, ret_data))
+                } else {
+                    None
+                }
             })
             .collect()
     }
